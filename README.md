@@ -172,6 +172,6 @@ This script is written by Tairan Liu.
    
    Modification  01/18/2017 - Solve double bond problem.
 
-   Last revision 01/18/2017 - Test.
+   Modification 01/18/2017 - Test.
    
-   Modification	 06/15/2022 - Add colab code, remove extraneous files and fix Error Code 1092.
+   Last revision 06/15/2022 - Add colab code, remove extraneous files and fix Error Code 1092. (bess)
