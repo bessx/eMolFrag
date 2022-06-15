@@ -281,7 +281,9 @@ def findFragments(outputDir,mol2File,brickList,linkerList):
                 #this new linker is found
                 newLinkerList.append(sorted(templist2))
                 for tempAtom in templist2:
-                    linkerAtomAll.remove(tempAtom)
+                    if tempAtom in linkerAtomAll:
+                        linkerAtomAll.remove(tempAtom)
+                        linkerAtomAll.remove(tempAtom)
     
         else: # the first linker does not have atom 
             pass
