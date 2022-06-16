@@ -283,7 +283,6 @@ def findFragments(outputDir,mol2File,brickList,linkerList):
                 for tempAtom in templist2:
                     if tempAtom in linkerAtomAll:
                         linkerAtomAll.remove(tempAtom)
-                        linkerAtomAll.remove(tempAtom)
     
         else: # the first linker does not have atom 
             pass
