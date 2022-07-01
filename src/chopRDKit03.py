@@ -19,6 +19,14 @@
 #chopRDKit03.py debug.
 #Last Revision 04/06/2016.
 
+
+#Last Revision 6/30/2022. Chris Alvin
+# TODO:
+#   Remove redundancies
+#   Extract Double-Bond Connection to its own file
+#   Clarify a 'main' procedure
+#
+
 from __future__ import print_function
 import sys
 import os
@@ -50,19 +58,82 @@ class RDKitError(Error):
     def __init__(self, message):
         self.message = message
 
-def parseMolBlock(molBlock):
-    # find V2000
-    sdfInfoList=[]
-    sdfInfoList = molBlock.split('\n')
+#
+# Parse an SDF format molecule into two lists: atoms and bonds
+#
+#
+#
+#
+#
+def parseMolBlock_Extract_AtomList_BondList(sdfAsList):
 
-    fileHead=list(filter(lambda x: 'V2000' in x, sdfInfoList))
-    fileHeadLineNum=sdfInfoList.index(fileHead[0])
-    fileHeadList=fileHead[0].split()
-    atomNum=int(fileHead[0][0:3])
-    bondNum=int(fileHead[0][3:6])
+    # Seek the unique line containing V2000 since it has atom / bond information
+    countsLine = list(filter(lambda line: 'V2000' in line, sdfAsList))
+    
+    if len(countsLine) != 1:
+        print("Unexpected number of lines in SDF contain V2000", len(countsLine))
+    
+    # Use the unique line
+    countsLine = countsLine[0]
 
-    atomList=sdfInfoList[fileHeadLineNum+1:fileHeadLineNum+atomNum+1]
-    bondList=sdfInfoList[fileHeadLineNum+atomNum+1:fileHeadLineNum+atomNum+bondNum+1]
+    # SDF format has exactly 3 spaces for number of atoms and number of bonds
+    # -------
+    numAtoms = int(countsLine[0:3])
+    numBonds = int(countsLine[3:6])
+
+    # Determine the lines where atoms and bonds are    
+    atomsStartIndex = sdfAsList.index(countsLine) + 1
+    bondsStartIndex = atomsStartIndex + numAtoms
+    bondsEndIndex = bondsStartIndex + numBonds
+
+    # Extract the eact lines: atoms then bonds
+    atomList = sdfAsList[atomsStartIndex : bondsStartIndex]
+    bondList = sdfAsList[bondsStartIndex : bondsEndIndex]
+    
+    return (atomList, bondList)
+
+
+def parseMolBlock_ExtractAtomInfo(atomList):
+    #get coordinates
+    atomX=[]
+    atomY=[]
+    atomZ=[]
+    atomI=[]
+    atomOL=[]
+    atomA=[]
+    atomRemoveList=[]
+    atomRemoveInd=[]
+    for i in range(len(atomList)):
+        atomLine=atomList[i].split()
+        #print(atomList[i])
+        if atomLine[3]=='H':
+            atomRemoveList.append(atomList[i])
+            atomRemoveInd.append(str(i+1))
+        else:
+            atomI.append(i+1)
+            atomX.append(float(atomLine[0]))
+            atomY.append(float(atomLine[1]))
+            atomZ.append(float(atomLine[2]))
+            atomOL.append(atomList[i])
+            atomA.append(atomLine[3])
+
+    atomInfo=[atomI,atomX,atomY,atomZ,atomOL,atomA]
+
+    #get bond info list
+    bondInfo=[]
+
+    for bond in bondList:
+        templist=[bond[0:3],bond[3:6]]+bond[6:].split()
+        if (str(int(templist[0])) not in atomRemoveInd) and (str(int(templist[1])) not in atomRemoveInd):
+            bondInfo.append([str(int(templist[0])),str(int(templist[1])),bond])
+
+    print(atomInfo)
+    print(bondInfo)
+
+    return atomInfo, bondInfo
+    
+def parseMolBlock_ExtractAtomInfo(atomList):
+
 
     #get coordinates
     atomX=[]
@@ -97,23 +168,102 @@ def parseMolBlock(molBlock):
         if (str(int(templist[0])) not in atomRemoveInd) and (str(int(templist[1])) not in atomRemoveInd):
             bondInfo.append([str(int(templist[0])),str(int(templist[1])),bond])
 
-    return atomInfo,bondInfo
+    print(atomInfo)
+    print(bondInfo)
+
+    return atomInfo, bondInfo
+
+def parseMolBlock(molBlock):
+
+    print(molBlock)
+
+    # find V2000
+    sdfAsList = molBlock.split('\n')
+
+    (atomList, bondList) = parseMolBlock_Extract_AtomList_BondList(sdfAsList)
+
+    #get coordinates
+    atomX=[]
+    atomY=[]
+    atomZ=[]
+    atomI=[]
+    atomOL=[]
+    atomA=[]
+    atomRemoveList=[]
+    atomRemoveInd=[]
+    for i in range(len(atomList)):
+        atomLine=atomList[i].split()
+        #print(atomList[i])
+        if atomLine[3]=='H':
+            atomRemoveList.append(atomList[i])
+            atomRemoveInd.append(str(i+1))
+        else:
+            atomI.append(i+1)
+            atomX.append(float(atomLine[0]))
+            atomY.append(float(atomLine[1]))
+            atomZ.append(float(atomLine[2]))
+            atomOL.append(atomList[i])
+            atomA.append(atomLine[3])
+
+    atomInfo=[atomI,atomX,atomY,atomZ,atomOL,atomA]
+
+    #get bond info list
+    bondInfo=[]
+
+    for bond in bondList:
+        templist=[bond[0:3],bond[3:6]]+bond[6:].split()
+        if (str(int(templist[0])) not in atomRemoveInd) and (str(int(templist[1])) not in atomRemoveInd):
+            bondInfo.append([str(int(templist[0])),str(int(templist[1])),bond])
+
+    print(atomInfo)
+    print(bondInfo)
+
+    return atomInfo, bondInfo
 
 
-def FindDoubleBonds(inputMol):
+#
+# Double bonds are represented with the value 2.0
+# Single bonds 1.0 and Aromatic 1.5
+#
+def IndexOfDoubleBond(inputMol):
+
+
+    try:
+      print(Chem.MolToMolBlock(inputMol))
+    except:
+      pass
+
+    for atom in inputMol.GetAtoms():
+        print(atom.GetSymbol())
+
+    # Check each bond individually
     for i in range(inputMol.GetNumBonds()):
         typeValue = inputMol.GetBondWithIdx(i).GetBondTypeAsDouble()
+
+        # Identify double bonds without direct floating-point comparison
         if abs(typeValue - 2.0) < 0.01:
-            startAtom = inputMol.GetBondWithIdx(i).GetBeginAtomIdx()
-            endAtom = inputMol.GetBondWithIdx(i).GetEndAtomIdx()
-            startSymbol = inputMol.GetAtomWithIdx(startAtom).GetSymbol()
-            endSymbol = inputMol.GetAtomWithIdx(endAtom).GetSymbol()
+        
+            # Collect double-bond information
+            startAtomIndex = inputMol.GetBondWithIdx(i).GetBeginAtomIdx()
+            startSymbol = inputMol.GetAtomWithIdx(startAtomIndex).GetSymbol()
+
+            endAtomIndex = inputMol.GetBondWithIdx(i).GetEndAtomIdx()
+            endSymbol = inputMol.GetAtomWithIdx(endAtomIndex).GetSymbol()
+
+            print("Bond", i+1, "is a double bond")
+            print("Double Bond found at index", startAtomIndex+1, "from", startSymbol, "to", endSymbol, "at index", endAtomIndex+1)
+
+            # Ensure that we return the atom associated with the
+            # R-group radical (R) created by BRICS
+            # Bug fix 6/30/2022: replaced '*' with 'R'
             if (startSymbol == 'C' and endSymbol == '*'):
                 # meet L7
-                return endAtom
+                print("Double-Bond of consequence found: C--*")
+                return endAtomIndex
             elif (startSymbol == '*' and endSymbol == 'C'):
                 # meet L7
-                return startAtom
+                print("Double-Bond of consequence found: *--C")
+                return startAtomIndex
             else:
                 pass
 
@@ -158,57 +308,82 @@ def ProcessDoubleBonds(parentMolblock, dbFragList):
     groupIndSetAll = []
     groupSymbolSetAll = []
 
-    if len(dbFragList) >= 2:
-        tempFragList = dbFragList
+    if len(dbFragList) < 2: return []
 
-        while len(tempFragList) > 0:
-            atomIndSet = []
-            connectPoint = []
-            groupIndSet = []
-            groupSymbolSet = []
-            tempFrag1 = tempFragList[0]
-            [tempFrag1AtomInfo,tempFrag1BondInfo] = parseMolBlock(tempFrag1)
-            fragInd1 = GetAtomIndexList(parentAtomInfo, tempFrag1AtomInfo)
-            atomIndSet = fragInd1
-            groupIndSet.append(fragInd1)
-            groupSymbolSet.append(tempFrag1AtomInfo[5])
-            tempFragList.remove(tempFrag1)
+    print("dbFragList >= 2", len(dbFragList))
 
-            restFrags = []
-            for frag in tempFragList:
-                if frag != tempFrag1:
-                    restFrags.append(frag)
-            for frag in restFrags:
-                [tempFrag2AtomInfo,tempFrag2BondInfo] = parseMolBlock(frag)
-                fragInd2 = GetAtomIndexList(parentAtomInfo, tempFrag2AtomInfo)
-                interSet = list(set(atomIndSet).intersection(fragInd2))
-                if len(interSet) >= 2:
-                    atomIndSet = list(set(atomIndSet + fragInd2))
-                    connectPoint = list(set(connectPoint + interSet))
-                    groupIndSet.append(fragInd2)
-                    groupSymbolSet.append(tempFrag2AtomInfo[5])
-                    tempFragList.remove(frag)
+    tempFragList = dbFragList
+
+    while len(tempFragList) > 0:
+        atomIndSet = []
+        connectPoint = []
+        groupIndSet = []
+        groupSymbolSet = []
+        tempFrag1 = tempFragList[0]
+        [tempFrag1AtomInfo,tempFrag1BondInfo] = parseMolBlock(tempFrag1)
+        fragInd1 = GetAtomIndexList(parentAtomInfo, tempFrag1AtomInfo)
+        atomIndSet = fragInd1
+        groupIndSet.append(fragInd1)
+        groupSymbolSet.append(tempFrag1AtomInfo[5])
+        tempFragList.remove(tempFrag1)
+
+        restFrags = []
+        for frag in tempFragList:
+            if frag != tempFrag1:
+                restFrags.append(frag)
+        for frag in restFrags:
+            [tempFrag2AtomInfo,tempFrag2BondInfo] = parseMolBlock(frag)
+            fragInd2 = GetAtomIndexList(parentAtomInfo, tempFrag2AtomInfo)
+            interSet = list(set(atomIndSet).intersection(fragInd2))
+            if len(interSet) >= 2:
+                atomIndSet = list(set(atomIndSet + fragInd2))
+                connectPoint = list(set(connectPoint + interSet))
+                groupIndSet.append(fragInd2)
+                groupSymbolSet.append(tempFrag2AtomInfo[5])
+                tempFragList.remove(frag)
+            else:
+                pass
+
+        atomIndSetAll.append(atomIndSet)
+        connectPointAll.append(connectPoint)
+        groupIndSetAll.append(groupIndSet)
+        groupSymbolSetAll.append(groupSymbolSet)
+
+    # Get connected index sets print(atomIndSetAll)
+
+    for i in range(len(atomIndSetAll)):
+        atomIndSet = atomIndSetAll[i]
+        atomX = []
+        atomY = []
+        atomZ = []
+        atomA = []
+        atomI = []
+        atomOL = []
+        for atomInd in atomIndSet:
+            if atomInd in connectPointAll[i]:
+                # copy info from parent
+                atomI.append(atomInd)
+                atomA.append(parentAtomInfo[5][atomInd-1])
+                atomX.append(parentAtomInfo[1][atomInd-1])
+                atomY.append(parentAtomInfo[2][atomInd-1])
+                atomZ.append(parentAtomInfo[3][atomInd-1])
+                atomOL.append(parentAtomInfo[4][atomInd-1])
+
+            else:
+                # copy info from parent
+                # detect atom symbol
+                tempInd = list(filter(lambda x: atomInd in x, groupIndSetAll[i]))
+                tempInd2 = groupIndSetAll[i].index(tempInd[0])
+                tempInd3 = groupIndSetAll[i][tempInd2].index(atomInd)
+                tempChar = groupSymbolSetAll[i][tempInd2][tempInd3]
+                if tempChar == 'R':
+                    atomI.append(atomInd)
+                    atomA.append('R')
+                    atomX.append(parentAtomInfo[1][atomInd-1])
+                    atomY.append(parentAtomInfo[2][atomInd-1])
+                    atomZ.append(parentAtomInfo[3][atomInd-1])
+                    atomOL.append(parentAtomInfo[4][atomInd-1])
                 else:
-                    pass
-
-            atomIndSetAll.append(atomIndSet)
-            connectPointAll.append(connectPoint)
-            groupIndSetAll.append(groupIndSet)
-            groupSymbolSetAll.append(groupSymbolSet)
-
-        # Get connected index sets print(atomIndSetAll)
-
-        for i in range(len(atomIndSetAll)):
-            atomIndSet = atomIndSetAll[i]
-            atomX = []
-            atomY = []
-            atomZ = []
-            atomA = []
-            atomI = []
-            atomOL = []
-            for atomInd in atomIndSet:
-                if atomInd in connectPointAll[i]:
-                    # copy info from parent
                     atomI.append(atomInd)
                     atomA.append(parentAtomInfo[5][atomInd-1])
                     atomX.append(parentAtomInfo[1][atomInd-1])
@@ -216,38 +391,14 @@ def ProcessDoubleBonds(parentMolblock, dbFragList):
                     atomZ.append(parentAtomInfo[3][atomInd-1])
                     atomOL.append(parentAtomInfo[4][atomInd-1])
 
-                else:
-                    # copy info from parent
-                    # detect atom symbol
-                    tempInd = list(filter(lambda x: atomInd in x, groupIndSetAll[i]))
-                    tempInd2 = groupIndSetAll[i].index(tempInd[0])
-                    tempInd3 = groupIndSetAll[i][tempInd2].index(atomInd)
-                    tempChar = groupSymbolSetAll[i][tempInd2][tempInd3]
-                    if tempChar == 'R':
-                        atomI.append(atomInd)
-                        atomA.append('R')
-                        atomX.append(parentAtomInfo[1][atomInd-1])
-                        atomY.append(parentAtomInfo[2][atomInd-1])
-                        atomZ.append(parentAtomInfo[3][atomInd-1])
-                        atomOL.append(parentAtomInfo[4][atomInd-1])
-                    else:
-                        atomI.append(atomInd)
-                        atomA.append(parentAtomInfo[5][atomInd-1])
-                        atomX.append(parentAtomInfo[1][atomInd-1])
-                        atomY.append(parentAtomInfo[2][atomInd-1])
-                        atomZ.append(parentAtomInfo[3][atomInd-1])
-                        atomOL.append(parentAtomInfo[4][atomInd-1])
+        atomInfo = [atomI,atomX,atomY,atomZ,atomOL,atomA]
 
-            atomInfo = [atomI,atomX,atomY,atomZ,atomOL,atomA]
-
-            bondInfo = []
-            for bond in parentBondInfo:
-                if (int(bond[0]) in atomIndSetAll[i]) and (int(bond[1]) in atomIndSetAll[i]):
-                    bondInfo.append(bond[2])
-            tempMolblock = GenerateMolblock(atomInfo, bondInfo)
-            connectedList.append(tempMolblock)
-    else:
-        pass
+        bondInfo = []
+        for bond in parentBondInfo:
+            if (int(bond[0]) in atomIndSetAll[i]) and (int(bond[1]) in atomIndSetAll[i]):
+                bondInfo.append(bond[2])
+        tempMolblock = GenerateMolblock(atomInfo, bondInfo)
+        connectedList.append(tempMolblock)
 
     return connectedList
 
@@ -303,7 +454,9 @@ def GenerateMolblock(atomInfo, bondInfo):
 # Input: parent molecule and fragments in mol-object
 # Output: fragments in mol-object
 def ReconnectDoubleBond(parentMol, inputFrags):
-    parentMolblock = Chem.MolToMolBlock(parentMol,kekulize=False)
+
+    parentMolBlock = Chem.MolToMolBlock(parentMol,kekulize=False)
+
     fragmentMolblocks = []
     for i in range(len(inputFrags)):
         tempFragStr = Chem.MolToMolBlock(inputFrags[i],kekulize=False)
@@ -312,14 +465,16 @@ def ReconnectDoubleBond(parentMol, inputFrags):
     newFragmentMolBlocks = []
     dbFragList = []
     for i in range(len(inputFrags)):
-        tempValue = FindDoubleBonds(inputFrags[i])
+        print("Analyzing fragment", i+1)
+        
+        tempValue = IndexOfDoubleBond(inputFrags[i])
         if tempValue >= 0:
             # Find C.2 = C.2 bond
             dbFragList.append(fragmentMolblocks[i])
         else:
             newFragmentMolBlocks.append(fragmentMolblocks[i])
 
-    reconnectedDBFrags = ProcessDoubleBonds(parentMolblock, dbFragList)
+    reconnectedDBFrags = ProcessDoubleBonds(parentMolBlock, dbFragList)
     newFragmentMolBlocks = newFragmentMolBlocks + reconnectedDBFrags
 
     newFragmentMol = []
@@ -341,7 +496,7 @@ def FragmentSanitize(tempSDFPath):
         #print('Not good for true')
         raise RDKitError(1)
 
-def FragmentUnsantize(suppl1):
+def FragmentUnsanitize(suppl1):
     try:
         newmol = Chem.FragmentOnBRICSBonds(suppl1)
         #print('here')
@@ -375,38 +530,58 @@ def ChopWithRDKit(outputDir,inputPath):
     w.write(suppl)
     w.close()
 
+    print("Processing molecule", inputPath)
+
     try:
         mfl = FragmentSanitize(tempSDFPath)
     except RDKitError:
-        mfl = FragmentUnsantize(suppl)
+        mfl = FragmentUnsanitize(suppl)
 
-    #newmol=Chem.FragmentOnBRICSBonds(suppl)
-    #mfl=Chem.GetMolFrags(newmol,asMols=True,sanitizeFrags=False)
-    # Reconnect some double bonds broken by BRICS - L7
+    print(len(mfl), "fragments created by BRICS")
+    
+    # i = 1
+    # for fragment in mfl:
+    #     print("Fragment", i)
+    #     try:
+    #       print(Chem.MolToMolBlock(fragment,kekulize=False))
+    #     except:
+    #       pass
+    #     i = i + 1
+
+    #
+    # Reconnect some double bonds broken by BRICS - L7: C.2 to C.2
+    #
     mfl2 = ReconnectDoubleBond(suppl, mfl)
+
+    print("Reconnected a double bond among", len(mfl) - len(mfl2) + 1, "fragments")
 
     #generate fragments with rdkit
     fileList=[]
-    f=0
-    l=0
-    r=0
+    f = 0
+    l = 0
+    r = 0
     for m in mfl2:
-        carbonC=0
-        nitrogC=0
-        oxygenC=0
-        rmAtomCount=0
-        for i in range(m.GetNumAtoms()):
-            #record dummy atom and hydrogen number
-            if m.GetAtomWithIdx(i).GetSymbol() == '*':
-                rmAtomCount=rmAtomCount+1
-            if m.GetAtomWithIdx(i).GetSymbol() == 'H':
-                rmAtomCount=rmAtomCount+1
-            if m.GetAtomWithIdx(i).GetSymbol() == 'C':
-                carbonC=carbonC+1
-            if m.GetAtomWithIdx(i).GetSymbol() == 'N':
-                nitrogC=nitrogC+1
-            if m.GetAtomWithIdx(i).GetSymbol() == 'O':
-                oxygenC=oxygenC+1
+        carbonC = 0
+        nitrogC = 0
+        oxygenC = 0
+        rmAtomCount = 0
+
+        # Count the number of dummy atoms and hydrogen atoms
+        for atom in m.GetAtoms():
+
+            sym = atom.GetSymbol()
+            if sym == '*':
+                rmAtomCount = rmAtomCount + 1
+            elif sym == 'H':
+                rmAtomCount = rmAtomCount + 1
+            elif sym == 'C':
+                carbonC = carbonC + 1
+            elif sym == 'N':
+                nitrogC = nitrogC + 1
+            elif sym == 'O':
+                oxygenC = oxygenC + 1
+            else:
+                pass
 
         #create file
         totalAtomNum=m.GetNumAtoms()-rmAtomCount
@@ -460,17 +635,15 @@ def ChopWithRDKit(outputDir,inputPath):
                     brickInfoList=inf.readlines()
                 #print(brickInfoList)
                 brickMolEndList=[i for i, x in enumerate(brickInfoList) if x == '$$$$\n']
-                #print(brickInfoList[:brickMolEndList[0]])
-                fileHead=list(filter(lambda x: 'V2000' in x, brickInfoList))
 
-                fileHeadLineNum=brickInfoList.index(fileHead[0])
-                #print(fileHeadLineNum)
-                fileHeadList=fileHead[0].split()
-                atomNum=int(fileHead[0][0:3])
-                bondNum=int(fileHead[0][3:6])
-                atomList=brickInfoList[fileHeadLineNum+1:fileHeadLineNum+atomNum+1]
-                bondList=brickInfoList[fileHeadLineNum+atomNum+1:fileHeadLineNum+atomNum+bondNum+1]
+                print("brickInfoList")
+                print(brickInfoList)
 
+                # 6/30/2022 Update to reduce redundancy
+                (atomList, bondList) = parseMolBlock_Extract_AtomList_BondList(brickInfoList)
+                atomNum = len(atomList)
+                bondNum = len(bondList)
+                
                 #Search for atom type
                 atomTypeList=[]
 
@@ -486,6 +659,7 @@ def ChopWithRDKit(outputDir,inputPath):
                     atomX=float(atomLineInfoList[0])
                     atomY=float(atomLineInfoList[1])
                     atomZ=float(atomLineInfoList[2])
+
                     #calculate norm
                     normList=[]
                     for i in range(len(mol2AtomInfo)):
@@ -495,7 +669,8 @@ def ChopWithRDKit(outputDir,inputPath):
                     atomTypeList.append(mol2A[minInd]+'\n')
 
                     #dummy atom List
-                    if atomLineInfoList[3] == "R":
+                    print("Atom", atomLineInfoList[3])
+                    if atomLineInfoList[3] == "*": # CTA: Changed to * for dummy; solution of major problem
                         dummyAtomList.append(atomList.index(atomLine))
                         dummyAtomLineList.append(atomLine)
 
@@ -515,14 +690,30 @@ def ChopWithRDKit(outputDir,inputPath):
                     bondLineInfoList=[bondLine[0:3],bondLine[3:6]]+bondLine[6:].split()
                     bondInfoList.append([int(bondLineInfoList[0]),int(bondLineInfoList[1])])
 
-                dummyConnection=[] #dummyConnection is a list of connections of the original file, eg. ['8 14 1 0\n',''], which will be used to remove not using connections in the last step
-                allConnection=[] #all connection is a list of connection pairs, eg. [[8,14],[6,15]], which will be used to generate appendix II
+
+                # dummyConnection is a list of connections of the original file,
+                # eg. ['8 14 1 0\n',''], which will be used to remove not using
+                # connections in the last step
+                dummyConnection=[] 
+
+                # all connection is a list of connection pairs,
+                # eg. [[8,14],[6,15]], which will be used to generate appendix II
+                allConnection=[]
+
+                # For each dummy
                 for dummyIdx in dummyAtomList:
+
+                    # identify the bonds the dummy is involved with
                     connectionList=list(filter(lambda x: dummyIdx+1 in x, bondInfoList))
 
-                    for tempCon in connectionList:
-                        conIndex=bondInfoList.index(tempCon)
+
+                    for connection in connectionList:
+                        conIndex = bondInfoList.index(connection)
                         dummyConnection.append(bondList[conIndex])
+
+                    print(dummyConnection)
+
+HERE
 
                     #remove the case both dummy atoms are in the bond
                     rmBond=[]
@@ -631,6 +822,7 @@ def ChopWithRDKit(outputDir,inputPath):
 
                 #find the end of molcules
                 linkerMolEndList=[i for i, x in enumerate(linkerInfoList) if x == '$$$$\n']
+
                 #find the start of molecules
                 fileHead=list(filter(lambda x: 'V2000' in x, linkerInfoList))
                 #indicate the line num of the head line
@@ -663,7 +855,6 @@ def ChopWithRDKit(outputDir,inputPath):
                     atomTypeList.append(mol2A[minInd]+'\n')
 
                     #dummy atom List
-
                     if atomLineInfoList[3] == "R":
                         dummyAtomList.append(atomList.index(atomLine))
                         dummyAtomLineList.append(atomLine)
