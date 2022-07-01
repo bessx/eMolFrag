@@ -711,9 +711,7 @@ def ChopWithRDKit(outputDir,inputPath):
                         conIndex = bondInfoList.index(connection)
                         dummyConnection.append(bondList[conIndex])
 
-                    print(dummyConnection)
-
-HERE
+                    #HERE print(dummyConnection)
 
                     #remove the case both dummy atoms are in the bond
                     rmBond=[]
