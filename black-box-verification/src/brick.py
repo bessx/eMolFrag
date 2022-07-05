@@ -59,21 +59,30 @@ class Brick(fragment.Fragment):
         if self._atomtypes != that._atomtypes:
             return False
 
-        if brick._atomtypes != that._atomtypes:
-            return False
-
         #
         # Check equality of connections; order is arbitrary
         #
-        if len(self._connections) == len(that._connections):
+        if len(self._connections) != len(that._connections):
             return False
         
-        foundConns = 0
-        for conn in self._connections:
-            if conn in that._connections:
-                foundConns = foundConns + 1
+        # foundConns = 0
+        # for conn in self._connections:
+            # if conn in that._connections:
+                # foundConns = foundConns + 1
         
-        return foundConns == len(self._connections)
+        # return foundConns == len(self._connections)
+        
+
+        marked = [False] * len(self._connections)
+        for s_index in range(len(self._connections)):
+            for that_index in range(len(that._connections)):
+
+                if not marked[s_index]:
+                    if self._connections[s_index] == that._connections[that_index]:
+                        marked[s_index] = True
+                        break
+
+        return False not in marked
 
 #
 #
@@ -117,12 +126,27 @@ def UnitTest_CheckBrick(abspath, \
     #
     assert len(brick._connections) == len(expec_connections), "Number of connections"
 
+    marked = [False] * len(expec_connections)
+
+    for e_index in range(len(expec_connections)):
+        for b_index in range(len(brick._connections)):
+
+            if not marked[e_index]:
+                if expec_connections[e_index] == brick._connections[b_index]:
+                    marked[e_index] = True
+                    break
+
+    assert False not in marked, "Connections not completely matched"
+
+
     foundConns = 0
     for expec_conn in expec_connections:
         if expec_conn in brick._connections:
             foundConns = foundConns + 1
 
     assert foundConns == len(expec_connections), "Found only " + str(foundConns) + ", expected " + str(len(expec_connections))
+        
+    assert brick.equals(brick), "equals() failed"
         
 import os.path
 

@@ -79,6 +79,8 @@ def UnitTest_CheckLinker(abspath, \
 
     assert linker._contacts == expec_contacts, "Linker Contacts"
 
+    assert linker.equals(linker), "equals() failed"
+
 import os.path
 
 if __name__ == "__main__":

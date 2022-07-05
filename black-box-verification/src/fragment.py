@@ -64,15 +64,22 @@ class Fragment:
         self.extractAtoms()
         self.extractBonds()
         
+        self._name = sdf_abspath.split("/")[-1]
+        
+    def name(self):
+        return self._name    
+        
     def equals(self, that):
-        if self._numAtoms != that._numAtoms:
-            return False
-            
-        if self._numBonds != that._numBonds:
+        if self._atomElements != that._atomElements:
             return False
                 
-        if self._atomLines != that._atomLines:
+        if self._bonds != that._bonds:
             return False
+         
+        if self._bondTypes != that._bondTypes:
+            return False
+            
+        return True
          
     def extractAtoms(self):
 
