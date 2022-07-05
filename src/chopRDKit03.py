@@ -105,7 +105,7 @@ def parseMolBlock_ExtractAtomInfo(atomList):
     atomRemoveInd=[]
     for i in range(len(atomList)):
         atomLine=atomList[i].split()
-        #print(atomList[i])
+
         if atomLine[3]=='H':
             atomRemoveList.append(atomList[i])
             atomRemoveInd.append(str(i+1))
@@ -126,56 +126,12 @@ def parseMolBlock_ExtractAtomInfo(atomList):
         templist=[bond[0:3],bond[3:6]]+bond[6:].split()
         if (str(int(templist[0])) not in atomRemoveInd) and (str(int(templist[1])) not in atomRemoveInd):
             bondInfo.append([str(int(templist[0])),str(int(templist[1])),bond])
-
-    print(atomInfo)
-    print(bondInfo)
-
-    return atomInfo, bondInfo
-    
-def parseMolBlock_ExtractAtomInfo(atomList):
-
-
-    #get coordinates
-    atomX=[]
-    atomY=[]
-    atomZ=[]
-    atomI=[]
-    atomOL=[]
-    atomA=[]
-    atomRemoveList=[]
-    atomRemoveInd=[]
-    for i in range(len(atomList)):
-        atomLine=atomList[i].split()
-        #print(atomList[i])
-        if atomLine[3]=='H':
-            atomRemoveList.append(atomList[i])
-            atomRemoveInd.append(str(i+1))
-        else:
-            atomI.append(i+1)
-            atomX.append(float(atomLine[0]))
-            atomY.append(float(atomLine[1]))
-            atomZ.append(float(atomLine[2]))
-            atomOL.append(atomList[i])
-            atomA.append(atomLine[3])
-
-    atomInfo=[atomI,atomX,atomY,atomZ,atomOL,atomA]
-
-    #get bond info list
-    bondInfo=[]
-
-    for bond in bondList:
-        templist=[bond[0:3],bond[3:6]]+bond[6:].split()
-        if (str(int(templist[0])) not in atomRemoveInd) and (str(int(templist[1])) not in atomRemoveInd):
-            bondInfo.append([str(int(templist[0])),str(int(templist[1])),bond])
-
-    print(atomInfo)
-    print(bondInfo)
 
     return atomInfo, bondInfo
 
 def parseMolBlock(molBlock):
 
-    print(molBlock)
+    #print(molBlock)
 
     # find V2000
     sdfAsList = molBlock.split('\n')
@@ -193,7 +149,7 @@ def parseMolBlock(molBlock):
     atomRemoveInd=[]
     for i in range(len(atomList)):
         atomLine=atomList[i].split()
-        #print(atomList[i])
+
         if atomLine[3]=='H':
             atomRemoveList.append(atomList[i])
             atomRemoveInd.append(str(i+1))
@@ -225,10 +181,10 @@ def parseMolBlock(molBlock):
 def IndexOfDoubleBond(inputMol):
 
 
-    try:
-      print(Chem.MolToMolBlock(inputMol))
-    except:
-      pass
+    # try:
+      # print(Chem.MolToMolBlock(inputMol))
+    # except:
+      # pass
 
     # Check each bond individually
     for i in range(inputMol.GetNumBonds()):
@@ -244,19 +200,19 @@ def IndexOfDoubleBond(inputMol):
             endAtomIndex = inputMol.GetBondWithIdx(i).GetEndAtomIdx()
             endSymbol = inputMol.GetAtomWithIdx(endAtomIndex).GetSymbol()
 
-            print("Bond", i+1, "is a double bond")
-            print("Double Bond found at index", startAtomIndex+1, "from", startSymbol, "to", endSymbol, "at index", endAtomIndex+1)
+            # print("Bond", i+1, "is a double bond")
+            # print("Double Bond found at index", startAtomIndex+1, "from", startSymbol, "to", endSymbol, "at index", endAtomIndex+1)
 
             # Ensure that we return the atom associated with the
             # R-group radical (R) created by BRICS
             # Bug fix 6/30/2022: replaced '*' with 'R'
             if (startSymbol == 'C' and endSymbol == '*'):
                 # meet L7
-                print("Double-Bond of consequence found: C--*")
+                # print("Double-Bond of consequence found: C--*")
                 return endAtomIndex
             elif (startSymbol == '*' and endSymbol == 'C'):
                 # meet L7
-                print("Double-Bond of consequence found: *--C")
+                # print("Double-Bond of consequence found: *--C")
                 return startAtomIndex
             else:
                 pass
@@ -304,7 +260,7 @@ def ProcessDoubleBonds(parentMolblock, dbFragList):
 
     if len(dbFragList) < 2: return []
 
-    print("dbFragList >= 2", len(dbFragList))
+    #print("dbFragList >= 2", len(dbFragList))
 
     tempFragList = dbFragList
 
@@ -459,7 +415,7 @@ def ReconnectDoubleBond(parentMol, inputFrags):
     newFragmentMolBlocks = []
     dbFragList = []
     for i in range(len(inputFrags)):
-        print("Analyzing fragment", i+1)
+        #print("Analyzing fragment", i+1)
         
         tempValue = IndexOfDoubleBond(inputFrags[i])
         if tempValue >= 0:
@@ -531,7 +487,7 @@ def ChopWithRDKit(outputDir,inputPath):
     except RDKitError:
         mfl = FragmentUnsanitize(suppl)
 
-    print(len(mfl), "fragments created by BRICS")
+    #print(len(mfl), "fragments created by BRICS")
     
     # i = 1
     # for fragment in mfl:
@@ -548,7 +504,7 @@ def ChopWithRDKit(outputDir,inputPath):
     mfl2 = ReconnectDoubleBond(suppl, mfl)
 
     if len(mfl) != len(mfl2):
-        print("Reconnected a double bond among", len(mfl) - len(mfl2) + 1, "fragments")
+        print("Reconnected a double bond between", len(mfl) - len(mfl2) + 1, "fragments")
 
     #generate fragments with rdkit
     fileList=[]

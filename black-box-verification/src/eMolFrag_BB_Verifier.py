@@ -26,20 +26,20 @@ def emitError(level, s):
 def emitWarning(level, s):
     print("  " * level + "Warning:", s)
 
-def compareDirectory(path):
-    print("Black box verification test directory:", bb_test_abs_path)
-
 def getDirectories(path):
     return [f for f in os.listdir(path) if not os.path.isfile(path + "/" + f)]
 
 def getFiles(path):
     return [f for f in os.listdir(path) if os.path.isfile(path + "/" + f)]
 
-DEFAULT_TEST_DIRECTORY = "../tests"    
+DEFAULT_EMOLFRAG_DIRECTORY = "eMolFrag"
+DEFAULT_TEST_DIRECTORY = DEFAULT_EMOLFRAG_DIRECTORY + "/black-box-verification/tests"
 INPUT_DIR_NAME = "input"
 EXPECTED_OUTPUT_DIR_NAME = "expected-output"
 GENERATED_OUTPUT_DIR_NAME = "generated-output"
 
+E_MOL_FRAG_OUTPUT_BRICKS_DIR = "output-brick"
+E_MOL_FRAG_OUTPUT_LINKERS_DIR = "output-linker"
 E_MOL_FRAG = "eMolFrag.py"
 E_MOL_FRAG_OPTIONS = ["-c", "0"] # Instructions to create separate fragment files
 
@@ -53,7 +53,7 @@ def buildEmolFragEXEArgs(inpath, outdir):
 
     # Exceutable
     instrs = ["python"]
-    instrs.append("./eMolFrag.py")
+    instrs.append(DEFAULT_EMOLFRAG_DIRECTORY + "/src/eMolFrag.py")
 
     # Input
     instrs.append("-i")
@@ -68,6 +68,21 @@ def buildEmolFragEXEArgs(inpath, outdir):
 
     return instrs 
  
+def executeEmolFrag(path):
+    #    
+    # Run a test:
+    #    (1) Run emolfrag
+    #    (2) Compare generated output to expected output
+    #
+    inpath = path + '/' + INPUT_DIR_NAME
+    outpath = path + '/' + GENERATED_OUTPUT_DIR_NAME
+    
+    exeInstructions = buildEmolFragEXEArgs(inpath, outpath)
+
+    emit(1, "Executing " + " ".join(exeInstructions))
+
+    subprocess.run(exeInstructions)
+
 #
 # A well-constructed Black Box directory
 # will contain at least 2 directories:
@@ -101,23 +116,10 @@ def checkBBdirectoryContents(path):
     if GENERATED_OUTPUT_DIR_NAME in dirs:
         emitWarning(1, "Contents of generated output directory " + \
                     path + "/" + GENERATED_OUTPUT_DIR_NAME + " will be deleted (and regenerated).")
+        import shutil # for directory removal
+        shutil.rmtree(path + "/" + GENERATED_OUTPUT_DIR_NAME)
                     
     return True
-
-def executeEmolFrag(path):
-    #    
-    # Run a test:
-    #    (1) Run emolfrag
-    #    (2) Compare generated output to expected output
-    #
-    inpath = path + '/' + INPUT_DIR_NAME
-    outpath = path + '/' + GENERATED_OUTPUT_DIR_NAME
-    
-    exeInstructions = buildEmolFragEXEArgs(inpath, outpath)
-
-    emit(1, "Executing " + " ".join(exeInstructions))
-
-    # TO BE UNCOMMENTED result = subprocess.run(exeInstructions)
     
 #
 #
@@ -199,8 +201,10 @@ def compareOutput(path):
     # Acquire linkers / brick objects from both the expected and generated directors
     #
     expec_linkers, expec_bricks = readFragmentDirectory(path + "/" + EXPECTED_OUTPUT_DIR_NAME)
-    
-    gen_linkers, gen_bricks = readFragmentDirectory(path + "/" + GENERATED_OUTPUT_DIR_NAME)
+
+    # EmolFrag output is in two directories
+    gen_linkers, _ = readFragmentDirectory(path + "/" + GENERATED_OUTPUT_DIR_NAME + "/" + E_MOL_FRAG_OUTPUT_LINKERS_DIR) 
+    _ , gen_bricks = readFragmentDirectory(path + "/" + GENERATED_OUTPUT_DIR_NAME + "/" + E_MOL_FRAG_OUTPUT_BRICKS_DIR)
 
     verified = True
     if not compareFragments(expec_linkers, gen_linkers, "linker"):
@@ -227,7 +231,7 @@ def runBBtest(path):
     if not checkBBdirectoryContents(path):
         emit(1, "Directory check failed, tests in " + path + " not executed.")
         return False
-    
+
     executeEmolFrag(path)
 
     return compareOutput(path)
@@ -267,7 +271,7 @@ def runAllBB(path):
 #
 
 def usage():
-    return "Usage: " + sys.argv[0] + " <test-directory-root>"
+    return "Usage: " + sys.argv[0] + "<emolfrag-directory>"
   
 def main():
 
@@ -313,4 +317,4 @@ def main():
         print("\n\t".join([""] + successes))
    
 if __name__ == "__main__":
-  main()
+    main()
