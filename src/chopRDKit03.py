@@ -215,9 +215,6 @@ def parseMolBlock(molBlock):
         if (str(int(templist[0])) not in atomRemoveInd) and (str(int(templist[1])) not in atomRemoveInd):
             bondInfo.append([str(int(templist[0])),str(int(templist[1])),bond])
 
-    print(atomInfo)
-    print(bondInfo)
-
     return atomInfo, bondInfo
 
 
@@ -232,9 +229,6 @@ def IndexOfDoubleBond(inputMol):
       print(Chem.MolToMolBlock(inputMol))
     except:
       pass
-
-    for atom in inputMol.GetAtoms():
-        print(atom.GetSymbol())
 
     # Check each bond individually
     for i in range(inputMol.GetNumBonds()):
@@ -553,7 +547,8 @@ def ChopWithRDKit(outputDir,inputPath):
     #
     mfl2 = ReconnectDoubleBond(suppl, mfl)
 
-    print("Reconnected a double bond among", len(mfl) - len(mfl2) + 1, "fragments")
+    if len(mfl) != len(mfl2):
+        print("Reconnected a double bond among", len(mfl) - len(mfl2) + 1, "fragments")
 
     #generate fragments with rdkit
     fileList=[]
@@ -570,7 +565,7 @@ def ChopWithRDKit(outputDir,inputPath):
         for atom in m.GetAtoms():
 
             sym = atom.GetSymbol()
-            if sym == '*':
+            if sym == '*':  # This symbol will be printed as 'R', but is returned as '*'
                 rmAtomCount = rmAtomCount + 1
             elif sym == 'H':
                 rmAtomCount = rmAtomCount + 1
@@ -583,14 +578,19 @@ def ChopWithRDKit(outputDir,inputPath):
             else:
                 pass
 
-        #create file
-        totalAtomNum=m.GetNumAtoms()-rmAtomCount
-        if m.GetNumAtoms()-rmAtomCount >=4 :
-            tempFileName=output+'b-'+lig+'-'+str(r).zfill(3)+'.sdf'
-            r=r+1
-        if m.GetNumAtoms()-rmAtomCount <4 :
-            tempFileName=output+'l-'+lig+'-'+str(l).zfill(3)+'.sdf'
-            l=l+1
+        #
+        # create file
+        #
+        totalAtomNum = m.GetNumAtoms() - rmAtomCount
+        
+        # 
+        if totalAtomNum >= 4:
+            tempFileName = output + 'b-' + lig + '-' + str(r).zfill(3) + '.sdf'
+            r = r + 1
+            
+        elif totalAtomNum < 4:
+            tempFileName = output + 'l-' + lig + '-' + str(l).zfill(3) + '.sdf'
+            l = l + 1
 
         w=Chem.SDWriter(tempFileName)
         w.SetKekulize(False)
@@ -600,8 +600,11 @@ def ChopWithRDKit(outputDir,inputPath):
         fileList.append(tempFileName)
 
         #create file list with atom numbers
-        with open(outputFolderPath_log+'ListAll','at') as outlist:
-            outlist.write(tempFileName+' T '+str(totalAtomNum)+' C '+str(carbonC)+' N '+str(nitrogC)+' O '+str(oxygenC)+' \n')
+        with open(outputFolderPath_log + 'ListAll', 'at') as outlist:
+            outlist.write(tempFileName + ' T ' + str(totalAtomNum) + \
+                                         ' C ' + str(carbonC) + \
+                                         ' N ' + str(nitrogC) + \
+                                         ' O ' + str(oxygenC) + ' \n')
 
     #with open(outputFolderPath_log+'Process.log','at') as outf:
     #    outf.write('Files are created.\n')
@@ -627,17 +630,24 @@ def ChopWithRDKit(outputDir,inputPath):
 
     for filePath in fileList:
         fileName=os.path.basename(filePath)
-        if len(fileName) >0:
+        if len(fileName) > 0:
+        
+            print("Processing", filePath.split('/')[-1])
+        
             #processing brick fragments
             if fileName[0] == 'b':
+
                 brickInfoList=[]
                 with open(filePath,'r') as inf:
                     brickInfoList=inf.readlines()
-                #print(brickInfoList)
+
                 brickMolEndList=[i for i, x in enumerate(brickInfoList) if x == '$$$$\n']
 
-                print("brickInfoList")
-                print(brickInfoList)
+                #print("brickInfoList")
+                #print(brickInfoList)
+
+                fileHead = list(filter(lambda x: 'V2000' in x, brickInfoList))
+                fileHeadLineNum = brickInfoList.index(fileHead[0])
 
                 # 6/30/2022 Update to reduce redundancy
                 (atomList, bondList) = parseMolBlock_Extract_AtomList_BondList(brickInfoList)
@@ -654,91 +664,103 @@ def ChopWithRDKit(outputDir,inputPath):
                 hydrAtomLineList=[]
 
                 for atomLine in atomList:
-                    atomLineInfoList=atomLine.split()
+                    atomLineInfoList = atomLine.split()
                     #atom in brick.sdf, xyz coordinates of one line
-                    atomX=float(atomLineInfoList[0])
-                    atomY=float(atomLineInfoList[1])
-                    atomZ=float(atomLineInfoList[2])
+                    atomX = float(atomLineInfoList[0])
+                    atomY = float(atomLineInfoList[1])
+                    atomZ = float(atomLineInfoList[2])
 
                     #calculate norm
-                    normList=[]
+                    normList = []
                     for i in range(len(mol2AtomInfo)):
-                        norm=(atomX-mol2X[i])*(atomX-mol2X[i])+(atomY-mol2Y[i])*(atomY-mol2Y[i])+(atomZ-mol2Z[i])*(atomZ-mol2Z[i])
+                        norm = (atomX-mol2X[i]) * (atomX-mol2X[i]) + \
+                               (atomY-mol2Y[i]) * (atomY-mol2Y[i]) + \
+                               (atomZ-mol2Z[i]) * (atomZ-mol2Z[i])
                         normList.append(norm)
-                    minInd=normList.index(min(normList))
-                    atomTypeList.append(mol2A[minInd]+'\n')
+  
+                    minInd = normList.index(min(normList))
+                    atomTypeList.append(mol2A[minInd] + '\n')
 
-                    #dummy atom List
-                    print("Atom", atomLineInfoList[3])
+                    # dummy atom List
+                    # print("Atom", atomLineInfoList[3])
                     if atomLineInfoList[3] == "*": # CTA: Changed to * for dummy; solution of major problem
                         dummyAtomList.append(atomList.index(atomLine))
                         dummyAtomLineList.append(atomLine)
 
-                    #hydrogen atom list
+                    # hydrogen atom list
                     if atomLineInfoList[3] == "H":
                         hydrAtomList.append(atomList.index(atomLine))
                         hydrAtomLineList.append(atomLine)
 
-                newBrickInfoList=brickInfoList[:brickMolEndList[0]]
+                newBrickInfoList = brickInfoList[:brickMolEndList[0]]
 
-                #Branch, eligible to connect
-
-                bondInfoList=[]
+                #print("Dummy Atom List", dummyAtomList)
+                #print("Hydrogen Atom List", hydrAtomList)
+                
+                #
+                # Branch, eligible to connect
+                #
+                bondInfoList = []
 
                 for bondLine in bondList:
-                    #bondLineInfoList=bondLine.split()
-                    bondLineInfoList=[bondLine[0:3],bondLine[3:6]]+bondLine[6:].split()
-                    bondInfoList.append([int(bondLineInfoList[0]),int(bondLineInfoList[1])])
-
+                    bondLineInfoList = [bondLine[0:3], bondLine[3:6]] + bondLine[6:].split()
+                    bondInfoList.append([int(bondLineInfoList[0]), int(bondLineInfoList[1])])
 
                 # dummyConnection is a list of connections of the original file,
-                # eg. ['8 14 1 0\n',''], which will be used to remove not using
+                # eg. ['8 14 1 0\n',''], which will be used to remove unused
                 # connections in the last step
                 dummyConnection=[] 
 
                 # all connection is a list of connection pairs,
                 # eg. [[8,14],[6,15]], which will be used to generate appendix II
-                allConnection=[]
+                allConnection = []
 
                 # For each dummy
                 for dummyIdx in dummyAtomList:
 
-                    # identify the bonds the dummy is involved with
-                    connectionList=list(filter(lambda x: dummyIdx+1 in x, bondInfoList))
-
+                    # identify the bonds the dummy is involved with (indexing starts at 1 with SDF format)
+                    connectionList = list(filter(lambda x: dummyIdx + 1 in x, bondInfoList))
 
                     for connection in connectionList:
                         conIndex = bondInfoList.index(connection)
-                        dummyConnection.append(bondList[conIndex])
-
-                    #HERE print(dummyConnection)
+                        if bondList[conIndex] not in dummyConnection:
+                            dummyConnection.append(bondList[conIndex])
 
                     #remove the case both dummy atoms are in the bond
-                    rmBond=[]
+                    rmBond = []
 
                     for connect in connectionList:
                         if connect[0]-1 in dummyAtomList:
                             if connect[1]-1 in dummyAtomList:
                                 rmBond.append(connect)
+
                     for tempBond in rmBond:
                         connectionList.remove(tempBond)
-                    allConnection=allConnection+connectionList
 
-                tempDummyCon=[]
-                for dummyCon in dummyConnection:
-                    if dummyCon not in tempDummyCon:
-                        tempDummyCon.append(dummyCon)
+                    allConnection = allConnection + connectionList
 
-                dummyConnection=tempDummyCon
+                #print("All Connection", allConnection)
+                #print("Dummy Connection", dummyConnection)
+
+                #Ensure unique dummy connections by removing redundancies
+                # dummyConnection = list(set(dummyConnection))
+                # tempDummyCon=[]
+                # for dummyCon in dummyConnection:
+                    # if dummyCon not in tempDummyCon:
+                        # tempDummyCon.append(dummyCon)
+
+                # dummyConnection=tempDummyCon
 
                 branchCon=[]
 
                 for connect in allConnection:
-                    if connect[0]-1 in dummyAtomList:
-                        branchCon.append(str(connect[1])+' '+atomTypeList[connect[0]-1])
+                    if connect[0] - 1 in dummyAtomList:
+                        branchCon.append(str(connect[1]) + ' ' + atomTypeList[connect[0] - 1])
 
                     if connect[1]-1 in dummyAtomList:
-                        branchCon.append(str(connect[0])+' '+atomTypeList[connect[1]-1])
+                        branchCon.append(str(connect[0]) + ' ' + atomTypeList[connect[1] - 1])
+
+                #print("Branch Connection", branchCon)
 
                 #sort branch by atom index
                 branchConAtomList=[]
@@ -754,6 +776,8 @@ def ChopWithRDKit(outputDir,inputPath):
                 for ind in range(len(branchConAtomList)):
                     newBranchCon.append(branchCon[branchConAtomIndexList[ind]])
 
+                #print("New Branch Connection", newBranchCon)
+
                 #hydrogen
                 hydrConnection=[]
                 for hydrIdx in hydrAtomList:
@@ -763,12 +787,19 @@ def ChopWithRDKit(outputDir,inputPath):
                         conIndex=bondInfoList.index(tempCon)
                         hydrConnection.append(bondList[conIndex])
 
+                #print("Hydr Connection", hydrConnection)
+                
                 #edit head line
-                newAtomNum=atomNum-len(dummyAtomLineList)-len(hydrAtomLineList)
-                newBondNum=bondNum-len(dummyConnection)-len(hydrConnection)
-                newHead=str(newAtomNum).rjust(3)+str(newBondNum).rjust(3)+fileHead[0][6:]
-                newBrickInfoList[fileHeadLineNum]=newHead
-                newBrickInfoList[0]=fileName+'\n'
+                newAtomNum = atomNum - len(dummyAtomLineList) - len(hydrAtomLineList)
+                newBondNum = bondNum - len(dummyConnection) - len(hydrConnection)
+                #print(2)
+                newHead = str(newAtomNum).rjust(3) + str(newBondNum).rjust(3) + fileHead[0][6:]
+                #print(3)
+                newBrickInfoList[fileHeadLineNum] = newHead
+                newBrickInfoList[0] = fileName + '\n'
+                #print(4)
+
+                #print("New Brick Info List", newBrickInfoList)
 
                 #edit output list
                 #edit appendix I - ATOM TYPES
@@ -795,6 +826,8 @@ def ChopWithRDKit(outputDir,inputPath):
                 for hydrCon in hydrConnection:
                     newBrickInfoList.remove(hydrCon)
 
+                #print("New Brick Info List", newBrickInfoList)
+
                 #remove M ISO line
                 fileMISO=list(filter(lambda x: 'M  ISO' in x, newBrickInfoList))
                 #print(fileMISO)
@@ -812,11 +845,11 @@ def ChopWithRDKit(outputDir,inputPath):
                 with open(filePath,'w') as outf:
                     outf.writelines(newBrickInfoList)
 
-            #Processing linker fragments
+            # Processing linker fragments
             if fileName[0] == 'l':
-                linkerInfoList=[]
+                linkerInfoList = []
                 with open(filePath,'r+') as inf:
-                    linkerInfoList=inf.readlines()
+                    linkerInfoList = inf.readlines()
 
                 #find the end of molcules
                 linkerMolEndList=[i for i, x in enumerate(linkerInfoList) if x == '$$$$\n']
@@ -847,7 +880,9 @@ def ChopWithRDKit(outputDir,inputPath):
                     #calculate norm
                     normList=[]
                     for i in range(len(mol2AtomInfo)):
-                        norm=(atomX-mol2X[i])*(atomX-mol2X[i])+(atomY-mol2Y[i])*(atomY-mol2Y[i])+(atomZ-mol2Z[i])*(atomZ-mol2Z[i])
+                        norm = (atomX-mol2X[i]) * (atomX-mol2X[i]) + \
+                               (atomY-mol2Y[i]) * (atomY-mol2Y[i]) + \
+                               (atomZ-mol2Z[i]) * (atomZ-mol2Z[i])
                         normList.append(norm)
                     minInd=normList.index(min(normList))
                     atomTypeList.append(mol2A[minInd]+'\n')
