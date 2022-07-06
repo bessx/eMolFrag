@@ -351,7 +351,7 @@ def RmLinkerRed(outputDir,inputL):
                         molANewAppdInfo.append(str(maxConnection[i])+' '+molAAppList[i][1]+'\n')
                     #print(molANewAppdInfo)
                     molANewAllInfo = molAList[:indAAppendIHead+1] + molANewAppdInfo 
-                    molANewAllInfo.append('\n$$$$')
+                    molANewAllInfo.append('\n$$$$\n')
                     molBaseName=os.path.basename(mol1)
                     dest=outputPath_linker+molBaseName
                     #shutil.copyfile(mol1,dest)
